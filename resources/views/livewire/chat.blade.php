@@ -6,12 +6,13 @@
         <!-- Left: User List -->
         <div class="w-1/4 border-r bg-gray-50">
             <div class="p-4 font-bold text-gray-700 border-b">Users</div>
-            <div class="divide-y">
+            <div class="divide-y" id="users_list">
                 @foreach ($users as $user)
                     <div wire:click="selectUser({{ $user->id }})"
                         class="p-3 cursor-pointer hover:bg-blue-100 transition
                         {{ $selectedUser->id === $user->id ? 'bg-blue-50 font-semibold' : '' }}
-                        ">
+                        "
+                        id="user-{{ $user->id }}">
                         <div class="text-gray-800">{{ $user->name }}</div>
                         <div class="text-xs text-gray-500">{{ $user->email }}</div>
                     </div>
@@ -28,21 +29,23 @@
             </div>
 
             <!-- Messages -->
-            <div class="flex-1 p-4 overflow-y-auto space-y-2 bg-gray-50">
+            <div class="flex-1 p-4 overflow-y-auto space-y-2 bg-gray-50" id='chat_messages'>
                 @foreach ($messages as $message)
                     <div class="flex {{ $message->sender_id === auth()->id() ? 'justify-end' : 'justify-start' }}">
                         <div
-                            class="max-w-xs px-4 py-2 rounded-2xl shadow
-                        {{ $message->sender_id === auth()->id() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800' }}
-                        ">
-
-                            {{ $message->message }}
+                            class="max-w-xs px-4 py-2 rounded-2xl shadow {{ $message->sender_id === auth()->id() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800' }}">
+                            <p>{{ $message->message }}</p>
+                            <small
+                                class="{{ $message->sender_id === auth()->id() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800' }} text-xs">
+                                {{ $message->created_at->diffForHumans() }}
+                            </small>
                         </div>
                     </div>
                 @endforeach
 
             </div>
-            <div id="typing_indicator" class="px-4 pb-1 text-xs text-gray-400 italic">Typing...</div>
+            <div id="typing_indicator" class="hidden px-4 pb-1 text-xs text-gray-400 italic">Typing...
+            </div>
 
             <!-- Input -->
             <form wire:submit='submit' class="p-4 border-t bg-white flex items-center gap-2">
@@ -60,21 +63,43 @@
 </div>
 <script>
     document.addEventListener('livewire:initialized', () => {
+
+
+
         let loginId = "{{ $loginID }}";
-        console.log(loginId);
+        let chatBox = document.getElementById('chat_messages');
 
-        Livewire.on('userTyping', (event) => {
 
-            window.Echo.private(`chat.${event.selectedUserID}`).whisper("typing", {
-                userID: event.userID,
-                userName: event.userName
-            })
-        })
-        window.Echo.private(`chat.${loginId}`).listenForWhisper('typing', (event) => {
-            console.log(event);
+        Livewire.on('scrollToBottom', (event) => {
+            if (chatBox) {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        });
 
-            var t = document.getElementById("typing_indicator");
-            t.innerText = `${event.userName} is Typing ....`
-        })
-    })
+        window.Echo.private(`chat.${loginId}`)
+            .listen('messageSent', (event) => {
+                if (chatBox) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            });
+
+        window.Echo.private(`chat.${loginId}`)
+            .listen('UserTyping', (event) => {
+                const indicator = document.getElementById("typing_indicator");
+
+
+
+                if (event.isTyping) {
+                    indicator.innerText = `${event.userName} is typing...`;
+                    indicator.classList.remove('hidden'); // أو 'd-none'
+                } else {
+                    indicator.innerText = ''; // 🧹 يمسح النص لما يوقف كتابة
+                    indicator.classList.add('hidden'); // أو 'd-none'
+
+                }
+
+
+                // chatBox.scrollTop = chatBox.scrollHeight;
+            });
+    });
 </script>
